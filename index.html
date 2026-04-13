@@ -1,0 +1,799 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>食材推荐菜 — AI智能菜谱推荐</title>
+<style>
+  :root {
+    --orange: #FF6B35;
+    --orange2: #FF9A3C;
+    --bg: #1A1A2E;
+    --bg2: #16213E;
+    --bg3: #0F3460;
+    --green: #2ECC71;
+    --blue: #3498DB;
+    --white: #FFFFFF;
+    --gray: rgba(255,255,255,0.5);
+    --card: rgba(255,255,255,0.07);
+    --card-border: rgba(255,255,255,0.12);
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { background:var(--bg); color:var(--white); font-family:'PingFang SC','Microsoft YaHei',sans-serif; overflow:hidden; height:100vh; width:100vw; }
+
+  /* ====== SCREENS ====== */
+  .screen { display:none; flex-direction:column; height:100vh; width:100vw; position:absolute; top:0; left:0; animation:fadeIn .3s ease; }
+  .screen.active { display:flex; }
+  @keyframes fadeIn { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
+
+  /* ====== SPLASH ====== */
+  #splash {
+    background: linear-gradient(160deg, #FF6B35 0%, #FF9A3C 40%, #1A1A2E 100%);
+    align-items:center; justify-content:center; gap:24px;
+  }
+  #splash .logo-icon { font-size:80px; filter:drop-shadow(0 4px 20px rgba(0,0,0,.4)); }
+  #splash h1 { font-size:36px; font-weight:700; letter-spacing:2px; }
+  #splash p { font-size:15px; color:rgba(255,255,255,.8); letter-spacing:1px; }
+  #splash .start-btn {
+    margin-top:40px; padding:16px 60px; border-radius:50px;
+    background:var(--white); color:var(--orange); font-size:18px; font-weight:700;
+    border:none; cursor:pointer; box-shadow:0 6px 30px rgba(0,0,0,.25);
+    transition:transform .15s, box-shadow .15s;
+  }
+  #splash .start-btn:hover { transform:scale(1.04); box-shadow:0 8px 36px rgba(0,0,0,.35); }
+
+  /* ====== NAV BAR ====== */
+  .navbar {
+    display:flex; background:rgba(26,26,46,0.97); border-top:1px solid var(--card-border);
+    padding:8px 0 12px; flex-shrink:0; position:sticky; bottom:0;
+  }
+  .nav-item { flex:1; display:flex; flex-direction:column; align-items:center; gap:3px; cursor:pointer; padding:4px 0; }
+  .nav-item .nav-icon { font-size:22px; }
+  .nav-item .nav-label { font-size:11px; color:var(--gray); transition:color .2s; }
+  .nav-item.active .nav-label { color:var(--orange); }
+  .nav-item.active .nav-icon { filter:drop-shadow(0 0 6px var(--orange)); }
+
+  /* ====== TOP BAR ====== */
+  .topbar { padding:16px 20px 12px; display:flex; align-items:center; gap:12px; flex-shrink:0; }
+  .topbar h2 { font-size:20px; font-weight:700; flex:1; }
+  .topbar .badge { background:var(--orange); color:#fff; font-size:11px; padding:2px 8px; border-radius:20px; }
+
+  /* ====== SCROLL AREA ====== */
+  .scroll-area { flex:1; overflow-y:auto; padding:0 16px 16px; }
+  .scroll-area::-webkit-scrollbar { width:3px; }
+  .scroll-area::-webkit-scrollbar-thumb { background:var(--card-border); border-radius:2px; }
+
+  /* ====== HOME ====== */
+  #home { background:var(--bg); }
+  .search-box {
+    margin:0 16px 20px; display:flex; align-items:center; gap:10px;
+    background:var(--card); border:1.5px solid var(--card-border); border-radius:14px; padding:12px 16px;
+    transition:border-color .2s;
+  }
+  .search-box:focus-within { border-color:var(--orange); }
+  .search-box input {
+    flex:1; background:none; border:none; outline:none; color:var(--white); font-size:15px;
+  }
+  .search-box input::placeholder { color:var(--gray); }
+  .search-box button {
+    background:var(--orange); color:#fff; border:none; border-radius:10px;
+    padding:8px 18px; font-size:14px; font-weight:600; cursor:pointer; transition:background .2s;
+  }
+  .search-box button:hover { background:var(--orange2); }
+
+  .section-title { font-size:16px; font-weight:700; margin-bottom:12px; display:flex; align-items:center; gap:6px; }
+  .section-title span { font-size:18px; }
+
+  .tag-group { display:flex; flex-wrap:wrap; gap:8px; margin-bottom:20px; }
+  .tag {
+    padding:6px 14px; border-radius:20px; font-size:13px; cursor:pointer;
+    background:var(--card); border:1px solid var(--card-border); color:var(--white);
+    transition:all .2s;
+  }
+  .tag:hover, .tag.active { background:var(--orange); border-color:var(--orange); }
+
+  .recipe-list { display:flex; flex-direction:column; gap:12px; }
+  .recipe-card {
+    background:var(--card); border:1px solid var(--card-border); border-radius:16px;
+    padding:16px; display:flex; align-items:center; gap:14px; cursor:pointer;
+    transition:all .2s;
+  }
+  .recipe-card:hover { border-color:var(--orange); background:rgba(255,107,53,.08); transform:translateX(2px); }
+  .recipe-card .r-icon { font-size:36px; width:52px; height:52px; background:rgba(255,107,53,.15); border-radius:14px; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+  .recipe-card .r-info { flex:1; }
+  .recipe-card .r-name { font-size:16px; font-weight:600; margin-bottom:4px; }
+  .recipe-card .r-meta { font-size:12px; color:var(--gray); display:flex; gap:10px; }
+  .recipe-card .r-meta span { display:flex; align-items:center; gap:3px; }
+  .recipe-card .r-arrow { color:var(--gray); font-size:18px; }
+  .recipe-card .r-diff { font-size:11px; padding:2px 8px; border-radius:10px; margin-top:4px; display:inline-block; }
+  .diff-easy { background:rgba(46,204,113,.15); color:var(--green); }
+  .diff-mid { background:rgba(52,152,219,.15); color:var(--blue); }
+  .diff-hard { background:rgba(255,107,53,.15); color:var(--orange); }
+
+  .ai-loading {
+    display:none; flex-direction:column; align-items:center; justify-content:center;
+    gap:16px; padding:40px; text-align:center;
+  }
+  .ai-loading.show { display:flex; }
+  .ai-dots { display:flex; gap:8px; }
+  .ai-dots span { width:10px; height:10px; border-radius:50%; background:var(--orange); animation:dotBounce 1.2s infinite; }
+  .ai-dots span:nth-child(2) { animation-delay:.2s; }
+  .ai-dots span:nth-child(3) { animation-delay:.4s; }
+  @keyframes dotBounce { 0%,80%,100%{transform:translateY(0)} 40%{transform:translateY(-12px)} }
+  .ai-loading p { color:var(--gray); font-size:14px; }
+
+  /* ====== DETAIL ====== */
+  #detail { background:var(--bg); }
+  .detail-header { padding:16px 20px; display:flex; align-items:center; gap:14px; flex-shrink:0; }
+  .back-btn { width:38px; height:38px; border-radius:12px; background:var(--card); border:1px solid var(--card-border); display:flex; align-items:center; justify-content:center; cursor:pointer; font-size:18px; flex-shrink:0; }
+  .detail-header h2 { font-size:18px; font-weight:700; flex:1; }
+  .fav-btn { width:38px; height:38px; border-radius:12px; background:var(--card); border:1px solid var(--card-border); display:flex; align-items:center; justify-content:center; cursor:pointer; font-size:20px; transition:all .2s; flex-shrink:0; }
+  .fav-btn.saved { background:rgba(255,107,53,.15); border-color:var(--orange); }
+
+  .detail-hero { margin:0 16px 16px; background:linear-gradient(135deg,rgba(255,107,53,.2),rgba(255,154,60,.1)); border-radius:20px; padding:24px; text-align:center; }
+  .detail-hero .hero-icon { font-size:64px; margin-bottom:8px; }
+  .detail-hero .hero-meta { display:flex; justify-content:center; gap:16px; margin-top:12px; }
+  .detail-hero .hero-meta span { font-size:13px; color:var(--gray); display:flex; align-items:center; gap:4px; }
+
+  .tab-bar { display:flex; margin:0 16px 16px; background:var(--card); border-radius:12px; padding:4px; border:1px solid var(--card-border); flex-shrink:0; }
+  .tab-btn { flex:1; padding:10px; text-align:center; border-radius:9px; cursor:pointer; font-size:14px; font-weight:600; color:var(--gray); transition:all .2s; }
+  .tab-btn.active { background:var(--orange); color:#fff; }
+
+  .tab-content { display:none; }
+  .tab-content.active { display:block; }
+
+  .steps-list { display:flex; flex-direction:column; gap:12px; }
+  .step-item { display:flex; gap:14px; align-items:flex-start; }
+  .step-num { width:30px; height:30px; border-radius:50%; background:var(--orange); color:#fff; font-size:13px; font-weight:700; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+  .step-text { font-size:14px; line-height:1.7; padding-top:5px; }
+
+  .ingredient-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+  .ing-item { background:var(--card); border:1px solid var(--card-border); border-radius:12px; padding:12px; text-align:center; }
+  .ing-item .ing-icon { font-size:24px; margin-bottom:4px; }
+  .ing-item .ing-name { font-size:13px; font-weight:600; }
+  .ing-item .ing-amount { font-size:12px; color:var(--gray); margin-top:2px; }
+
+  .nutrition-grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+  .nut-card { background:var(--card); border:1px solid var(--card-border); border-radius:14px; padding:16px; text-align:center; }
+  .nut-card .nut-val { font-size:28px; font-weight:700; color:var(--orange); }
+  .nut-card .nut-unit { font-size:12px; color:var(--gray); }
+  .nut-card .nut-name { font-size:13px; margin-top:4px; }
+
+  /* ====== FAVORITES ====== */
+  #favorites { background:var(--bg); }
+  .fav-list { display:flex; flex-direction:column; gap:10px; }
+  .fav-item { background:var(--card); border:1px solid var(--card-border); border-radius:14px; padding:14px 16px; display:flex; align-items:center; gap:12px; }
+  .fav-item .fi-icon { font-size:28px; width:44px; height:44px; background:rgba(255,107,53,.12); border-radius:12px; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+  .fav-item .fi-info { flex:1; }
+  .fav-item .fi-name { font-size:15px; font-weight:600; margin-bottom:3px; }
+  .fav-item .fi-meta { font-size:12px; color:var(--gray); }
+  .fav-item .fi-actions { display:flex; gap:8px; }
+  .btn-view { padding:7px 14px; border-radius:10px; background:rgba(255,107,53,.15); border:1px solid var(--orange); color:var(--orange); font-size:12px; font-weight:600; cursor:pointer; }
+  .btn-del { padding:7px 14px; border-radius:10px; background:rgba(255,80,80,.1); border:1px solid rgba(255,80,80,.4); color:#FF5050; font-size:12px; font-weight:600; cursor:pointer; }
+  .empty-state { text-align:center; padding:60px 20px; color:var(--gray); }
+  .empty-state .es-icon { font-size:52px; margin-bottom:12px; }
+
+  /* ====== PROFILE ====== */
+  #profile { background:var(--bg); }
+  .profile-header { padding:24px 20px 16px; display:flex; align-items:center; gap:16px; flex-shrink:0; }
+  .avatar { width:64px; height:64px; border-radius:50%; background:linear-gradient(135deg,var(--orange),var(--orange2)); display:flex; align-items:center; justify-content:center; font-size:28px; flex-shrink:0; }
+  .profile-info h3 { font-size:18px; font-weight:700; }
+  .profile-info p { font-size:13px; color:var(--gray); margin-top:3px; }
+
+  .setting-section { margin-bottom:20px; }
+  .setting-section .ss-title { font-size:13px; color:var(--gray); margin-bottom:10px; padding:0 4px; }
+  .setting-item { background:var(--card); border:1px solid var(--card-border); border-radius:14px; padding:14px 16px; display:flex; align-items:center; gap:12px; margin-bottom:8px; cursor:pointer; transition:border-color .2s; }
+  .setting-item:hover { border-color:var(--orange); }
+  .setting-item .si-icon { font-size:22px; width:40px; height:40px; border-radius:12px; background:rgba(255,107,53,.12); display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+  .setting-item .si-info { flex:1; }
+  .setting-item .si-title { font-size:15px; font-weight:600; }
+  .setting-item .si-desc { font-size:12px; color:var(--gray); margin-top:2px; }
+  .setting-item .si-arrow { color:var(--gray); font-size:16px; }
+  .setting-item .si-badge { font-size:11px; padding:3px 10px; border-radius:10px; background:rgba(255,107,53,.15); color:var(--orange); font-weight:600; }
+
+  /* ====== TOAST ====== */
+  .toast {
+    position:fixed; top:60px; left:50%; transform:translateX(-50%) translateY(-20px);
+    background:rgba(30,30,50,.95); border:1px solid var(--card-border); border-radius:12px;
+    padding:10px 20px; font-size:13px; color:var(--white); z-index:999;
+    opacity:0; transition:all .3s; pointer-events:none; white-space:nowrap;
+  }
+  .toast.show { opacity:1; transform:translateX(-50%) translateY(0); }
+
+  /* ====== MODAL ====== */
+  .modal-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,.6); z-index:100; align-items:flex-end; }
+  .modal-overlay.show { display:flex; }
+  .modal { background:var(--bg2); border-radius:24px 24px 0 0; padding:24px 20px 40px; width:100%; max-height:80vh; overflow-y:auto; animation:slideUp .3s ease; }
+  @keyframes slideUp { from{transform:translateY(60px);opacity:0} to{transform:translateY(0);opacity:1} }
+  .modal h3 { font-size:18px; font-weight:700; margin-bottom:16px; }
+  .modal-close { float:right; font-size:20px; cursor:pointer; color:var(--gray); }
+
+  /* preference chips */
+  .pref-group { margin-bottom:16px; }
+  .pref-label { font-size:13px; color:var(--gray); margin-bottom:8px; }
+  .pref-chips { display:flex; flex-wrap:wrap; gap:8px; }
+  .pref-chip { padding:7px 16px; border-radius:20px; font-size:13px; background:var(--card); border:1px solid var(--card-border); cursor:pointer; transition:all .2s; }
+  .pref-chip.on { background:var(--orange); border-color:var(--orange); color:#fff; }
+
+</style>
+</head>
+<body>
+
+<!-- ===== TOAST ===== -->
+<div class="toast" id="toast"></div>
+
+<!-- ===== SPLASH ===== -->
+<div class="screen active" id="splash">
+  <div class="logo-icon">🍳</div>
+  <h1>食材推荐菜</h1>
+  <p>AI 智能菜谱推荐</p>
+  <button class="start-btn" onclick="goHome()">开始使用</button>
+</div>
+
+<!-- ===== HOME ===== -->
+<div class="screen" id="home">
+  <div class="topbar">
+    <h2>🍽️ 为您推荐</h2>
+    <span class="badge">AI驱动</span>
+  </div>
+
+  <div class="search-box">
+    <span>🔍</span>
+    <input id="searchInput" type="text" placeholder="输入食材，如：西红柿、鸡蛋…" />
+    <button onclick="doSearch()">搜索</button>
+  </div>
+
+  <div class="scroll-area" id="homeScroll">
+    <!-- 快捷标签 -->
+    <div class="section-title"><span>🏷️</span> 常用食材</div>
+    <div class="tag-group" id="tagGroup">
+      <div class="tag" onclick="quickTag(this,'西红柿')">🍅 西红柿</div>
+      <div class="tag" onclick="quickTag(this,'鸡蛋')">🥚 鸡蛋</div>
+      <div class="tag" onclick="quickTag(this,'土豆')">🥔 土豆</div>
+      <div class="tag" onclick="quickTag(this,'猪肉')">🥩 猪肉</div>
+      <div class="tag" onclick="quickTag(this,'豆腐')">🫘 豆腐</div>
+      <div class="tag" onclick="quickTag(this,'黄瓜')">🥒 黄瓜</div>
+      <div class="tag" onclick="quickTag(this,'牛肉')">🥩 牛肉</div>
+      <div class="tag" onclick="quickTag(this,'鸡肉')">🍗 鸡肉</div>
+    </div>
+
+    <!-- AI加载动画 -->
+    <div class="ai-loading" id="aiLoading">
+      <div class="ai-dots"><span></span><span></span><span></span></div>
+      <p>DeepSeek AI 正在为您匹配菜谱…</p>
+    </div>
+
+    <!-- 菜谱列表 -->
+    <div class="section-title" id="recipeTitle" style="display:none"><span>✨</span> 推荐结果</div>
+    <div class="recipe-list" id="recipeList"></div>
+
+    <!-- 默认推荐 -->
+    <div id="defaultRecs">
+      <div class="section-title"><span>🔥</span> 热门推荐</div>
+      <div class="recipe-list" id="hotList"></div>
+    </div>
+  </div>
+  <div class="navbar">
+    <div class="nav-item active" onclick="switchTab('home')"><span class="nav-icon">🏠</span><span class="nav-label">首页</span></div>
+    <div class="nav-item" onclick="switchTab('favorites')"><span class="nav-icon">⭐</span><span class="nav-label">收藏</span></div>
+    <div class="nav-item" onclick="switchTab('profile')"><span class="nav-icon">👤</span><span class="nav-label">我的</span></div>
+  </div>
+</div>
+
+<!-- ===== DETAIL ===== -->
+<div class="screen" id="detail">
+  <div class="detail-header">
+    <div class="back-btn" onclick="goBack()">←</div>
+    <h2 id="detailTitle">西红柿炒鸡蛋</h2>
+    <div class="fav-btn" id="favBtn" onclick="toggleFav()">⭐</div>
+  </div>
+
+  <div style="flex:1;overflow-y:auto;padding-bottom:12px;">
+    <div class="detail-hero">
+      <div class="hero-icon" id="detailIcon">🍳</div>
+      <div class="hero-meta">
+        <span id="detailTime">⏱️ 30分钟</span>
+        <span id="detailDiff">📊 简单</span>
+        <span id="detailCal">🔥 185kcal</span>
+      </div>
+    </div>
+
+    <div class="tab-bar">
+      <div class="tab-btn active" onclick="switchDetailTab(0)">烹饪步骤</div>
+      <div class="tab-btn" onclick="switchDetailTab(1)">食材清单</div>
+      <div class="tab-btn" onclick="switchDetailTab(2)">营养成分</div>
+    </div>
+
+    <div style="padding:0 16px;">
+      <div class="tab-content active" id="tabSteps">
+        <div class="steps-list" id="stepsList"></div>
+      </div>
+      <div class="tab-content" id="tabIngr">
+        <div class="ingredient-grid" id="ingrGrid"></div>
+      </div>
+      <div class="tab-content" id="tabNut">
+        <div class="nutrition-grid" id="nutGrid"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== FAVORITES ===== -->
+<div class="screen" id="favorites">
+  <div class="topbar">
+    <h2>⭐ 我的收藏</h2>
+    <span class="badge" id="favCount">0</span>
+  </div>
+  <div class="scroll-area">
+    <div class="fav-list" id="favList"></div>
+    <div class="empty-state" id="favEmpty" style="display:none">
+      <div class="es-icon">📭</div>
+      <p>还没有收藏任何菜谱</p>
+      <p style="margin-top:6px;font-size:13px;">去首页搜索喜欢的菜谱吧</p>
+    </div>
+  </div>
+  <div class="navbar">
+    <div class="nav-item" onclick="switchTab('home')"><span class="nav-icon">🏠</span><span class="nav-label">首页</span></div>
+    <div class="nav-item active" onclick="switchTab('favorites')"><span class="nav-icon">⭐</span><span class="nav-label">收藏</span></div>
+    <div class="nav-item" onclick="switchTab('profile')"><span class="nav-icon">👤</span><span class="nav-label">我的</span></div>
+  </div>
+</div>
+
+<!-- ===== PROFILE ===== -->
+<div class="screen" id="profile">
+  <div class="topbar"><h2>👤 个人设置</h2></div>
+  <div class="scroll-area">
+    <div class="profile-header">
+      <div class="avatar">😊</div>
+      <div class="profile-info">
+        <h3>美食爱好者</h3>
+        <p>已收藏 <span id="profileFavCount">0</span> 道菜谱</p>
+      </div>
+    </div>
+
+    <div class="setting-section">
+      <div class="ss-title">饮食偏好</div>
+      <div class="setting-item" onclick="openPrefModal('taste')">
+        <div class="si-icon">🌶️</div>
+        <div class="si-info">
+          <div class="si-title">口味偏好</div>
+          <div class="si-desc">辣度 · 甜度 · 咸淡</div>
+        </div>
+        <span class="si-arrow">›</span>
+      </div>
+      <div class="setting-item" onclick="openPrefModal('diet')">
+        <div class="si-icon">🚫</div>
+        <div class="si-info">
+          <div class="si-title">饮食禁忌</div>
+          <div class="si-desc">过敏原 · 素食 · 宗教饮食</div>
+        </div>
+        <span class="si-arrow">›</span>
+      </div>
+      <div class="setting-item" onclick="openPrefModal('time')">
+        <div class="si-icon">⏱️</div>
+        <div class="si-info">
+          <div class="si-title">烹饪时间</div>
+          <div class="si-desc">快手菜≤15分 · 正常菜</div>
+        </div>
+        <span class="si-arrow">›</span>
+      </div>
+      <div class="setting-item" onclick="openPrefModal('cal')">
+        <div class="si-icon">📊</div>
+        <div class="si-info">
+          <div class="si-title">热量目标</div>
+          <div class="si-desc">减脂 · 增肌 · 均衡饮食</div>
+        </div>
+        <span class="si-arrow">›</span>
+      </div>
+    </div>
+
+    <div class="setting-section">
+      <div class="ss-title">通知与消息</div>
+      <div class="setting-item">
+        <div class="si-icon">🔔</div>
+        <div class="si-info">
+          <div class="si-title">消息通知</div>
+          <div class="si-desc">每日菜谱推送</div>
+        </div>
+        <span class="si-badge">已开启</span>
+      </div>
+    </div>
+
+    <div class="setting-section">
+      <div class="ss-title">版本信息</div>
+      <div class="setting-item">
+        <div class="si-icon">ℹ️</div>
+        <div class="si-info">
+          <div class="si-title">关于应用</div>
+          <div class="si-desc">食材推荐菜 v1.0 Demo · 用户体验课程项目</div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="navbar">
+    <div class="nav-item" onclick="switchTab('home')"><span class="nav-icon">🏠</span><span class="nav-label">首页</span></div>
+    <div class="nav-item" onclick="switchTab('favorites')"><span class="nav-icon">⭐</span><span class="nav-label">收藏</span></div>
+    <div class="nav-item active" onclick="switchTab('profile')"><span class="nav-icon">👤</span><span class="nav-label">我的</span></div>
+  </div>
+</div>
+
+<!-- ===== PREF MODAL ===== -->
+<div class="modal-overlay" id="prefModal" onclick="closePrefModal(event)">
+  <div class="modal">
+    <span class="modal-close" onclick="closePrefModal()">✕</span>
+    <h3 id="modalTitle">口味偏好</h3>
+    <div id="modalContent"></div>
+    <button style="width:100%;padding:14px;border-radius:14px;background:var(--orange);color:#fff;border:none;font-size:16px;font-weight:700;cursor:pointer;margin-top:16px;" onclick="closePrefModal()">保存设置</button>
+  </div>
+</div>
+
+<script>
+// ===========================
+// DATA
+// ===========================
+const RECIPES = [
+  {
+    id:1, name:'西红柿炒鸡蛋', icon:'🍳', time:'20分钟', diff:'简单', cal:185,
+    protein:12, fat:11, carb:8, ingredients:['西红柿','鸡蛋'],
+    steps:['西红柿洗净切块，鸡蛋打散加少许盐搅匀','锅中热油至七成热，倒入蛋液，炒散至金黄盛出','余油继续加热，下西红柿翻炒至软烂出汁','加入炒好的鸡蛋，翻炒均匀','调入盐、白糖适量提鲜，大火翻炒出锅'],
+    ingrList:[{icon:'🍅',name:'西红柿',amount:'2个约300g'},{icon:'🥚',name:'鸡蛋',amount:'3枚'},{icon:'🧂',name:'食盐',amount:'少许'},{icon:'🍬',name:'白糖',amount:'1小勺'}],
+    nutrition:[{name:'热量',val:'185',unit:'kcal'},{name:'蛋白质',val:'12',unit:'g'},{name:'脂肪',val:'11',unit:'g'},{name:'碳水',val:'8',unit:'g'}]
+  },
+  {
+    id:2, name:'番茄蛋汤', icon:'🍲', time:'15分钟', diff:'简单', cal:120,
+    protein:8, fat:6, carb:9, ingredients:['西红柿','鸡蛋'],
+    steps:['番茄切块，鸡蛋打散','锅内烧开水，加入番茄块煮2分钟','沿锅边淋入蛋液，用汤勺轻推成蛋花','加盐调味，撒香葱出锅'],
+    ingrList:[{icon:'🍅',name:'番茄',amount:'2个'},{icon:'🥚',name:'鸡蛋',amount:'2枚'},{icon:'🧂',name:'食盐',amount:'少许'},{icon:'🌿',name:'香葱',amount:'1根'}],
+    nutrition:[{name:'热量',val:'120',unit:'kcal'},{name:'蛋白质',val:'8',unit:'g'},{name:'脂肪',val:'6',unit:'g'},{name:'碳水',val:'9',unit:'g'}]
+  },
+  {
+    id:3, name:'土豆炖牛肉', icon:'🥘', time:'60分钟', diff:'中等', cal:380,
+    protein:28, fat:16, carb:25, ingredients:['土豆','牛肉'],
+    steps:['牛肉切块焯水去血沫','锅内热油，下姜蒜爆香，加牛肉翻炒上色','加生抽、老抽、料酒，加水没过牛肉','中火炖30分钟后加土豆块','继续炖20分钟至土豆软糯，大火收汁'],
+    ingrList:[{icon:'🥔',name:'土豆',amount:'2个约400g'},{icon:'🥩',name:'牛肉',amount:'500g'},{icon:'🧄',name:'大蒜',amount:'5瓣'},{icon:'🫚',name:'生抽',amount:'2大勺'}],
+    nutrition:[{name:'热量',val:'380',unit:'kcal'},{name:'蛋白质',val:'28',unit:'g'},{name:'脂肪',val:'16',unit:'g'},{name:'碳水',val:'25',unit:'g'}]
+  },
+  {
+    id:4, name:'凉拌黄瓜', icon:'🥗', time:'10分钟', diff:'简单', cal:65,
+    protein:2, fat:3, carb:8, ingredients:['黄瓜'],
+    steps:['黄瓜洗净拍碎，切成小段','加入蒜末、小米辣','调入生抽、醋、香油、盐','加少许白糖提鲜，拌匀腌5分钟即可'],
+    ingrList:[{icon:'🥒',name:'黄瓜',amount:'2根约300g'},{icon:'🧄',name:'蒜末',amount:'3瓣'},{icon:'🌶️',name:'小米辣',amount:'1个'},{icon:'🫚',name:'香油',amount:'1小勺'}],
+    nutrition:[{name:'热量',val:'65',unit:'kcal'},{name:'蛋白质',val:'2',unit:'g'},{name:'脂肪',val:'3',unit:'g'},{name:'碳水',val:'8',unit:'g'}]
+  },
+  {
+    id:5, name:'麻婆豆腐', icon:'🍛', time:'25分钟', diff:'中等', cal:230,
+    protein:14, fat:14, carb:12, ingredients:['豆腐','猪肉'],
+    steps:['豆腐切丁，焯水定型','锅内热油，下郫县豆瓣酱炒出红油','加入猪肉末翻炒至变色','加水、豆腐块，中火煮5分钟','调入盐，勾芡后撒花椒粉出锅'],
+    ingrList:[{icon:'🫘',name:'嫩豆腐',amount:'1块约400g'},{icon:'🥩',name:'猪肉末',amount:'100g'},{icon:'🌶️',name:'郫县豆瓣',amount:'1勺'},{icon:'🧄',name:'蒜末',amount:'4瓣'}],
+    nutrition:[{name:'热量',val:'230',unit:'kcal'},{name:'蛋白质',val:'14',unit:'g'},{name:'脂肪',val:'14',unit:'g'},{name:'碳水',val:'12',unit:'g'}]
+  },
+  {
+    id:6, name:'蒜蓉炒鸡肉', icon:'🍗', time:'20分钟', diff:'简单', cal:280,
+    protein:32, fat:13, carb:6, ingredients:['鸡肉'],
+    steps:['鸡肉切片，加生抽、淀粉、胡椒腌15分钟','锅内热油，爆香蒜末','下鸡肉片大火快炒至变色','加生抽、耗油调味','翻炒均匀，撒葱花出锅'],
+    ingrList:[{icon:'🍗',name:'鸡胸肉',amount:'300g'},{icon:'🧄',name:'大蒜',amount:'6瓣'},{icon:'🫚',name:'生抽',amount:'2大勺'},{icon:'🌿',name:'香葱',amount:'2根'}],
+    nutrition:[{name:'热量',val:'280',unit:'kcal'},{name:'蛋白质',val:'32',unit:'g'},{name:'脂肪',val:'13',unit:'g'},{name:'碳水',val:'6',unit:'g'}]
+  }
+];
+
+// 热门默认推荐
+const HOT_IDS = [1,3,4,5];
+
+// ===========================
+// STATE
+// ===========================
+let currentRecipeId = null;
+let favorites = JSON.parse(localStorage.getItem('favRecipes') || '[]');
+let prevScreen = 'home';
+let selectedTags = [];
+let detailTabIdx = 0;
+
+// ===========================
+// INIT
+// ===========================
+function init() {
+  renderHot();
+  renderFavorites();
+  updateFavCount();
+}
+
+function renderHot() {
+  const el = document.getElementById('hotList');
+  el.innerHTML = '';
+  HOT_IDS.forEach(id => {
+    const r = RECIPES.find(x=>x.id===id);
+    if(r) el.appendChild(makeRecipeCard(r));
+  });
+}
+
+function makeRecipeCard(r) {
+  const div = document.createElement('div');
+  div.className = 'recipe-card';
+  div.onclick = () => openDetail(r.id);
+  const diffClass = r.diff==='简单' ? 'diff-easy' : r.diff==='中等' ? 'diff-mid' : 'diff-hard';
+  div.innerHTML = `
+    <div class="r-icon">${r.icon}</div>
+    <div class="r-info">
+      <div class="r-name">${r.name}</div>
+      <div class="r-meta">
+        <span>⏱️ ${r.time}</span>
+        <span>🔥 ${r.cal}kcal</span>
+      </div>
+      <span class="r-diff ${diffClass}">${r.diff}</span>
+    </div>
+    <span class="r-arrow">›</span>
+  `;
+  return div;
+}
+
+// ===========================
+// SEARCH
+// ===========================
+function quickTag(el, name) {
+  el.classList.toggle('active');
+  if(selectedTags.includes(name)) {
+    selectedTags = selectedTags.filter(t=>t!==name);
+  } else {
+    selectedTags.push(name);
+  }
+  const inp = document.getElementById('searchInput');
+  inp.value = selectedTags.join('、');
+}
+
+function doSearch() {
+  const val = document.getElementById('searchInput').value.trim();
+  if(!val) { showToast('请输入食材'); return; }
+  
+  // Show loading
+  document.getElementById('defaultRecs').style.display = 'none';
+  document.getElementById('recipeTitle').style.display = 'none';
+  document.getElementById('recipeList').innerHTML = '';
+  document.getElementById('aiLoading').classList.add('show');
+  
+  // Simulate AI delay
+  setTimeout(() => {
+    document.getElementById('aiLoading').classList.remove('show');
+    const keywords = val.split(/[、，,\s]+/);
+    const results = RECIPES.filter(r =>
+      keywords.some(kw => r.ingredients.some(ing => ing.includes(kw) || kw.includes(ing)))
+    );
+    
+    document.getElementById('recipeTitle').style.display = 'flex';
+    const list = document.getElementById('recipeList');
+    list.innerHTML = '';
+    
+    if(results.length === 0) {
+      list.innerHTML = `<div style="text-align:center;color:var(--gray);padding:30px">
+        <div style="font-size:40px;margin-bottom:8px">🤔</div>
+        <p>未找到相关菜谱</p><p style="font-size:12px;margin-top:6px">试试其他食材组合</p>
+      </div>`;
+    } else {
+      results.forEach(r => list.appendChild(makeRecipeCard(r)));
+      showToast(`AI 为您推荐了 ${results.length} 道菜谱`);
+    }
+    document.getElementById('homeScroll').scrollTop = 0;
+  }, 1800);
+}
+
+// ===========================
+// DETAIL
+// ===========================
+function openDetail(id) {
+  const r = RECIPES.find(x=>x.id===id);
+  if(!r) return;
+  currentRecipeId = id;
+  prevScreen = document.querySelector('.screen.active').id;
+  
+  document.getElementById('detailTitle').textContent = r.name;
+  document.getElementById('detailIcon').textContent = r.icon;
+  document.getElementById('detailTime').textContent = `⏱️ ${r.time}`;
+  document.getElementById('detailDiff').textContent = `📊 ${r.diff}`;
+  document.getElementById('detailCal').textContent = `🔥 ${r.cal}kcal`;
+  
+  // Steps
+  const stepsList = document.getElementById('stepsList');
+  stepsList.innerHTML = '';
+  r.steps.forEach((s,i) => {
+    stepsList.innerHTML += `<div class="step-item"><div class="step-num">${i+1}</div><div class="step-text">${s}</div></div>`;
+  });
+  
+  // Ingredients
+  const ingrGrid = document.getElementById('ingrGrid');
+  ingrGrid.innerHTML = '';
+  r.ingrList.forEach(ing => {
+    ingrGrid.innerHTML += `<div class="ing-item"><div class="ing-icon">${ing.icon}</div><div class="ing-name">${ing.name}</div><div class="ing-amount">${ing.amount}</div></div>`;
+  });
+  
+  // Nutrition
+  const nutGrid = document.getElementById('nutGrid');
+  nutGrid.innerHTML = '';
+  r.nutrition.forEach(n => {
+    nutGrid.innerHTML += `<div class="nut-card"><div class="nut-val">${n.val}</div><div class="nut-unit">${n.unit}</div><div class="nut-name">${n.name}</div></div>`;
+  });
+  
+  // Fav state
+  updateFavBtn();
+  
+  // Reset tabs
+  switchDetailTab(0);
+  
+  showScreen('detail');
+}
+
+function switchDetailTab(idx) {
+  detailTabIdx = idx;
+  document.querySelectorAll('.tab-btn').forEach((b,i) => b.classList.toggle('active', i===idx));
+  document.querySelectorAll('.tab-content').forEach((c,i) => c.classList.toggle('active', i===idx));
+}
+
+// ===========================
+// FAVORITES
+// ===========================
+function toggleFav() {
+  if(!currentRecipeId) return;
+  const idx = favorites.indexOf(currentRecipeId);
+  if(idx >= 0) {
+    favorites.splice(idx, 1);
+    showToast('已取消收藏');
+  } else {
+    favorites.push(currentRecipeId);
+    showToast('已收藏 ⭐');
+  }
+  localStorage.setItem('favRecipes', JSON.stringify(favorites));
+  updateFavBtn();
+  updateFavCount();
+  renderFavorites();
+}
+
+function updateFavBtn() {
+  const btn = document.getElementById('favBtn');
+  btn.classList.toggle('saved', favorites.includes(currentRecipeId));
+  btn.textContent = favorites.includes(currentRecipeId) ? '★' : '⭐';
+}
+
+function updateFavCount() {
+  document.getElementById('favCount').textContent = favorites.length;
+  document.getElementById('profileFavCount').textContent = favorites.length;
+}
+
+function renderFavorites() {
+  const list = document.getElementById('favList');
+  const empty = document.getElementById('favEmpty');
+  list.innerHTML = '';
+  if(favorites.length === 0) {
+    empty.style.display = 'block';
+    return;
+  }
+  empty.style.display = 'none';
+  favorites.forEach(id => {
+    const r = RECIPES.find(x=>x.id===id);
+    if(!r) return;
+    const div = document.createElement('div');
+    div.className = 'fav-item';
+    div.innerHTML = `
+      <div class="fi-icon">${r.icon}</div>
+      <div class="fi-info">
+        <div class="fi-name">${r.name}</div>
+        <div class="fi-meta">⏱️ ${r.time} · 🔥 ${r.cal}kcal</div>
+      </div>
+      <div class="fi-actions">
+        <button class="btn-view" onclick="openDetail(${r.id})">查看</button>
+        <button class="btn-del" onclick="removeFav(${r.id})">删除</button>
+      </div>
+    `;
+    list.appendChild(div);
+  });
+}
+
+function removeFav(id) {
+  favorites = favorites.filter(x=>x!==id);
+  localStorage.setItem('favRecipes', JSON.stringify(favorites));
+  updateFavCount();
+  renderFavorites();
+  showToast('已移除收藏');
+}
+
+// ===========================
+// PREFERENCE MODAL
+// ===========================
+const PREF_DATA = {
+  taste: {
+    title:'口味偏好',
+    groups:[
+      {label:'辣度',chips:['不辣','微辣','中辣','重辣']},
+      {label:'甜度',chips:['不甜','微甜','偏甜']},
+      {label:'咸淡',chips:['清淡','适中','重口']}
+    ]
+  },
+  diet: {
+    title:'饮食禁忌',
+    groups:[
+      {label:'过敏原',chips:['无限制','不含坚果','不含海鲜','不含乳制品']},
+      {label:'饮食类型',chips:['荤素皆可','纯素食','鱼素食']},
+      {label:'宗教饮食',chips:['无限制','清真','素斋']}
+    ]
+  },
+  time: {
+    title:'烹饪时间',
+    groups:[
+      {label:'时间偏好',chips:['≤15分钟 快手菜','15-30分钟','30-60分钟','60分钟以上']}
+    ]
+  },
+  cal: {
+    title:'热量目标',
+    groups:[
+      {label:'目标',chips:['减脂（低热量）','增肌（高蛋白）','均衡饮食','无限制']}
+    ]
+  }
+};
+
+let prefState = {};
+
+function openPrefModal(type) {
+  const data = PREF_DATA[type];
+  document.getElementById('modalTitle').textContent = data.title;
+  const content = document.getElementById('modalContent');
+  content.innerHTML = '';
+  data.groups.forEach((g,gi) => {
+    const div = document.createElement('div');
+    div.className = 'pref-group';
+    div.innerHTML = `<div class="pref-label">${g.label}</div><div class="pref-chips">${
+      g.chips.map((c,ci) => `<div class="pref-chip ${prefState[type+'_'+gi]===ci?'on':''}" onclick="selectPref('${type}',${gi},${ci},this)">${c}</div>`).join('')
+    }</div>`;
+    content.appendChild(div);
+  });
+  document.getElementById('prefModal').classList.add('show');
+}
+
+function selectPref(type, gi, ci, el) {
+  const parent = el.parentElement;
+  parent.querySelectorAll('.pref-chip').forEach(c=>c.classList.remove('on'));
+  el.classList.add('on');
+  prefState[type+'_'+gi] = ci;
+}
+
+function closePrefModal(e) {
+  if(e && e.target !== document.getElementById('prefModal')) return;
+  document.getElementById('prefModal').classList.remove('show');
+}
+
+// ===========================
+// NAVIGATION
+// ===========================
+function goHome() {
+  showScreen('home');
+}
+
+function goBack() {
+  showScreen(prevScreen);
+}
+
+function switchTab(name) {
+  showScreen(name);
+}
+
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  if(id==='favorites') renderFavorites();
+}
+
+// ===========================
+// TOAST
+// ===========================
+let toastTimer = null;
+function showToast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.remove('show'), 2200);
+}
+
+// ===========================
+// START
+// ===========================
+init();
+</script>
+</body>
+</html>
